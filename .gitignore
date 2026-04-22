@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+chat-pdf.json
+chat-pdf.properties
