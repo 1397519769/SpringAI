@@ -4,10 +4,10 @@ spring:
   ai:
     openai:
       base-url: https://dashscope.aliyuncs.com/compatible-mode
-      api-key: sk-2a8a3212b34044a7b8dd980de75544d5
+      api-key:
       chat:
         options:
-          model: qwen3-omni-flash
+          model: qwen3.5-plus
       embedding:
         options:
           model: text-embedding-v3
