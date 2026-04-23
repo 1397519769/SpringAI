@@ -31,6 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
-
+application-local.yaml
 chat-pdf.json
 chat-pdf.properties
