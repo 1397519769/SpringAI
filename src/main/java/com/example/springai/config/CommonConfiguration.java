@@ -1,6 +1,7 @@
 package com.example.springai.config;
 
 import com.example.springai.tools.CourseTools;
+import com.example.springai.tools.SupervisionTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -17,6 +18,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import static com.example.springai.constants.SystemConstants.SERVICE_SYSTEM_PROMPT;
+import static com.example.springai.constants.SystemConstants.SUPERVISION_SYSTEM_PROMPT;
 
 /**
  * Spring AI 配置类
@@ -58,15 +60,21 @@ public class CommonConfiguration {
     }
 
     @Bean
-    public ChatClient serviceChatClient(OpenAiChatModel chatModel, ChatMemory chatMemory, CourseTools courseTools) {
+    public ChatClient serviceChatClient(OpenAiChatModel chatModel, ChatMemory chatMemory, CourseTools courseTools, SupervisionTools supervisionTools) {
         return ChatClient
                 .builder(chatModel)
-                .defaultSystem(SERVICE_SYSTEM_PROMPT)
+                //课程预约
+//                .defaultSystem(SERVICE_SYSTEM_PROMPT)
+                //督查督办
+                .defaultSystem(SUPERVISION_SYSTEM_PROMPT)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultTools(courseTools)
+                //课程预约
+//                .defaultTools(courseTools)
+                //督查督办
+                .defaultTools(supervisionTools)
                 .build();
     }
 
