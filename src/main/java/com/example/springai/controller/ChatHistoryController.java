@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 聊天历史查询接口
+ * 提供按类型查询会话列表和按会话 ID 查询消息记录的功能。
+ */
 @RestController
 @RequestMapping("/ai/history")
 public class ChatHistoryController {
@@ -23,11 +27,17 @@ public class ChatHistoryController {
     @Autowired
     private ChatMemory chatMemory;
 
+    /**
+     * 根据类型查询所有会话 ID 列表
+     */
     @GetMapping(value = "/{type}")
     public List<String> getChatIds(@PathVariable("type") String type) {
             return chatHistoryRepository.getChatIds(type);
     }
 
+    /**
+     * 根据类型和会话 ID 查询消息记录
+     */
     @GetMapping(value = "/{type}/{chatId}")
     public List<MessageVo> getChatHistory(@PathVariable("type") String type, @PathVariable("chatId") String chatId) {
         List<Message> messages = chatMemory.get(chatId);

@@ -7,6 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 基于 Redis Set 的聊天会话 ID 存储实现。
+ * 按类型（chat/service/pdf）分组管理会话 ID。
+ * Key 格式: spring_ai_chat_history:{type}
+ */
 @Component
 public class RedisChatHistoryRepository implements ChatHistoryRepository {
 
