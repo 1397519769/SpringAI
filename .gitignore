@@ -33,6 +33,6 @@ build/
 .vscode/
 chat-pdf.json
 chat-pdf.properties
-
+*.pdf
 ### Config ###
 src/main/resources/application.yaml
