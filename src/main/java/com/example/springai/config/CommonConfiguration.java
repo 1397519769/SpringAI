@@ -8,15 +8,18 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.*;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.redis.RedisVectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import static com.example.springai.constants.SystemConstants.SERVICE_SYSTEM_PROMPT;
+import redis.clients.jedis.JedisPooled;
 import static com.example.springai.constants.SystemConstants.SUPERVISION_SYSTEM_PROMPT;
 
 /**
@@ -25,6 +28,44 @@ import static com.example.springai.constants.SystemConstants.SUPERVISION_SYSTEM_
  */
 @Configuration
 public class CommonConfiguration {
+
+    /**
+     * 标记 OpenAI EmbeddingModel 为主 Bean。
+     * 项目中同时有 Ollama 和 OpenAI 两个 EmbeddingModel，自动配置需要唯一 Bean。
+     */
+    @Bean
+    @Primary
+    public EmbeddingModel primaryEmbeddingModel(OpenAiEmbeddingModel openAiEmbeddingModel) {
+        return openAiEmbeddingModel;
+    }
+
+    /**
+     * 创建向量存储，用于 RAG 检索增强生成。
+     * 使用 RedisVectorStore 实现向量和文档的持久化存储，支持相似度检索和元数据过滤。
+     * 注意：必须显式声明为 RedisVectorStore 类型以覆盖自动配置，并注册 file_name 字段以支持过滤。
+     */
+    @Bean
+    public RedisVectorStore vectorStore(JedisPooled jedisPooled, EmbeddingModel embeddingModel) {
+        return RedisVectorStore.builder(jedisPooled, embeddingModel)
+                .indexName("pdf-documents-index")
+                .prefix("pdf_embedding:")
+                .initializeSchema(true)
+                .metadataFields(
+                        // 使用 TEXT 而非 TAG，因为 TAG 对中文精确匹配有兼容性问题
+                        RedisVectorStore.MetadataField.text("file_name")
+                )
+                .build();
+    }
+
+    /**
+     * Redis Jedis 连接池。供 RedisVectorStore 使用。
+     */
+    @Bean
+    public JedisPooled jedisPooled(
+            @Value("${spring.data.redis.host}") String host,
+            @Value("${spring.data.redis.port}") int port) {
+        return new JedisPooled(host, port);
+    }
 
     /**
      * 创建基于 Redis 的聊天消息存储仓库。
@@ -45,15 +86,6 @@ public class CommonConfiguration {
                 .chatMemoryRepository(redisChatMemoryRepository)
                 .maxMessages(50)
                 .build();
-    }
-
-    /**
-     * 创建向量存储，用于 RAG 检索增强生成。
-     * 使用 SimpleVectorStore 实现本地向量存储和相似度检索。
-     */
-    @Bean
-    public VectorStore vectorStore(OpenAiEmbeddingModel embeddingModel) {
-        return SimpleVectorStore.builder(embeddingModel).build();
     }
 
     /**
@@ -110,7 +142,7 @@ public class CommonConfiguration {
                         QuestionAnswerAdvisor.builder(vectorStore)
                                 .searchRequest(SearchRequest.builder()
                                         .similarityThreshold(0.6)
-                                        .topK(2)
+                                        .topK(1)
                                         .build())
                                 .build()
                 )

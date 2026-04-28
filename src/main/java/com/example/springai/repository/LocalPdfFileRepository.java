@@ -1,31 +1,29 @@
 package com.example.springai.repository;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.vectorstore.SimpleVectorStore;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.LocalDateTime;
 import java.util.Objects;
-import java.util.Properties;
 
+/**
+ * 基于 Redis Hash 的 PDF 文件映射仓库。
+ * Redis Key: chat_pdf_mapping
+ * Field: chatId -> filename (本地文件路径)
+ */
 @Slf4j
 @Component
 public class LocalPdfFileRepository implements FileRepository {
-    @Autowired
-    private VectorStore vectorStore;
-    // 会话id 与 文件名的对应关系，方便查询会话历史时重新加载文件
-    private final Properties chatFiles = new Properties();
+
+    private static final String KEY = "chat_pdf_mapping";
+    private final StringRedisTemplate stringRedisTemplate;
+
+    public LocalPdfFileRepository(StringRedisTemplate stringRedisTemplate) {
+        this.stringRedisTemplate = stringRedisTemplate;
+    }
 
     @Override
     public boolean save(String chatId, Resource resource) {
@@ -40,41 +38,19 @@ public class LocalPdfFileRepository implements FileRepository {
                 return false;
             }
         }
-        // 2.保存映射关系
-        chatFiles.put(chatId, filename);
+        // 2.保存映射关系到 Redis
+        stringRedisTemplate.opsForHash().put(KEY, chatId, filename);
+        log.info("Saved PDF mapping: chatId={}, file={}", chatId, filename);
         return true;
     }
 
     @Override
     public Resource getFile(String chatId) {
-        return new FileSystemResource(chatFiles.getProperty(chatId));
-    }
-
-    @PostConstruct
-    private void init() {
-        FileSystemResource pdfResource = new FileSystemResource("chat-pdf.properties");
-        if (pdfResource.exists()) {
-            try {
-                chatFiles.load(new BufferedReader(new InputStreamReader(pdfResource.getInputStream(), StandardCharsets.UTF_8)));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        Object filename = stringRedisTemplate.opsForHash().get(KEY, chatId);
+        if (filename == null) {
+            log.warn("No PDF mapping found for chatId={}", chatId);
+            return new FileSystemResource(new File(""));
         }
-        FileSystemResource vectorResource = new FileSystemResource("chat-pdf.json");
-        if (vectorResource.exists()) {
-            SimpleVectorStore simpleVectorStore = (SimpleVectorStore) vectorStore;
-            simpleVectorStore.load(vectorResource);
-        }
-    }
-
-    @PreDestroy
-    private void persistent() {
-        try {
-            chatFiles.store(new FileWriter("chat-pdf.properties"), LocalDateTime.now().toString());
-            SimpleVectorStore simpleVectorStore = (SimpleVectorStore) vectorStore;
-            simpleVectorStore.save(new File("chat-pdf.json"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return new FileSystemResource((String) filename);
     }
 }

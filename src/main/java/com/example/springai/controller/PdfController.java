@@ -50,10 +50,16 @@ public class PdfController {
         // 2.保存会话id
         chatHistoryRepository.save("pdf", chatId);
         // 3.请求模型
+        // 注意：去除文件名扩展名，避免 RediSearch TEXT 字段对点号的转义导致匹配失败
+        String fileNameWithoutExt = file.getFilename();
+        if (fileNameWithoutExt != null && fileNameWithoutExt.contains(".")) {
+            fileNameWithoutExt = fileNameWithoutExt.substring(0, fileNameWithoutExt.lastIndexOf("."));
+        }
+        final String filterFileName = fileNameWithoutExt;
         return pdfChatClient.prompt()
                 .user(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                .advisors(a -> a.param(QuestionAnswerAdvisor.FILTER_EXPRESSION, "file_name == '" + file.getFilename() + "'"))
+                .advisors(a -> a.param(QuestionAnswerAdvisor.FILTER_EXPRESSION, "file_name == '" + filterFileName + "'"))
                 .stream()
                 .content();
     }
